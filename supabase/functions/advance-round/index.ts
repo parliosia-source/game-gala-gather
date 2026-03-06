@@ -236,13 +236,17 @@ async function calculateScores(supabase: any, round: any, room_id: string) {
       }
     }
 
-    // Update submission score_earned
+    // Update submission score_earned (sum all events per player)
+    const playerTotals: Record<string, number> = {};
     for (const event of scoreEvents) {
+      playerTotals[event.player_id] = (playerTotals[event.player_id] || 0) + event.points;
+    }
+    for (const [playerId, total] of Object.entries(playerTotals)) {
       await supabase
         .from('submissions')
-        .update({ score_earned: event.points })
+        .update({ score_earned: total })
         .eq('round_id', round.id)
-        .eq('player_id', event.player_id);
+        .eq('player_id', playerId);
     }
   }
 }
