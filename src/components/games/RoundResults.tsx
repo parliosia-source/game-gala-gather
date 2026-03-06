@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeFunction } from '@/lib/invokeFunction';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -20,7 +21,7 @@ interface Props {
   submissions: Submission[];
 }
 
-export default function RoundResults({ round, room, player, players, submissions }: Props) {
+export default function RoundResults({ round, room, player, players }: Props) {
   const [scoreEvents, setScoreEvents] = useState<ScoreEvent[]>([]);
   const [advancing, setAdvancing] = useState(false);
   const isHost = room.host_id === player.user_id;
@@ -35,15 +36,12 @@ export default function RoundResults({ round, room, player, players, submissions
       if (data) setScoreEvents(data);
     };
     fetchScores();
-  }, [round.id]);
+  }, [round.id, round.status]);
 
   const handleAdvance = async () => {
     setAdvancing(true);
     try {
-      const { error } = await supabase.functions.invoke('advance-round', {
-        body: { room_id: room.id },
-      });
-      if (error) throw error;
+      await invokeFunction('advance-round', { room_id: room.id });
     } catch (e: any) {
       toast.error(e.message || 'Erreur');
       setAdvancing(false);
@@ -86,6 +84,9 @@ export default function RoundResults({ round, room, player, players, submissions
                 </motion.div>
               );
             })}
+            {scoreEvents.length === 0 && (
+              <p className="text-center text-muted-foreground text-sm">Aucun score pour cette manche</p>
+            )}
           </div>
 
           {isHost && round.status === 'results' && (

@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { generateRoomCode, AVATAR_COLORS } from '@/lib/gameTypes';
-import { Gamepad2, Users, Sparkles } from 'lucide-react';
+import { Users, Sparkles } from 'lucide-react';
 
 export default function Home() {
   const navigate = useNavigate();

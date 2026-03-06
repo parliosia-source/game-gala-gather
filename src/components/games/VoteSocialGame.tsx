@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeFunction } from '@/lib/invokeFunction';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -20,7 +20,7 @@ interface Props {
   submissions: Submission[];
 }
 
-export default function VoteSocialGame({ round, room, player, players, submissions }: Props) {
+export default function VoteSocialGame({ round, player, players, submissions }: Props) {
   const [answer, setAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [voted, setVoted] = useState(false);
@@ -31,10 +31,9 @@ export default function VoteSocialGame({ round, room, player, players, submissio
     if (!answer.trim()) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.functions.invoke('submit-answer', {
-        body: { round_id: round.id, player_id: player.id, answer: { text: answer.trim() } },
+      await invokeFunction('submit-answer', {
+        round_id: round.id, player_id: player.id, answer: { text: answer.trim() },
       });
-      if (error) throw error;
       toast.success('Réponse envoyée !');
     } catch (e: any) {
       toast.error(e.message || 'Erreur');
@@ -45,10 +44,9 @@ export default function VoteSocialGame({ round, room, player, players, submissio
 
   const handleVote = async (submissionId: string) => {
     try {
-      const { error } = await supabase.functions.invoke('submit-vote', {
-        body: { round_id: round.id, player_id: player.id, target_submission_id: submissionId },
+      await invokeFunction('submit-vote', {
+        round_id: round.id, player_id: player.id, target_submission_id: submissionId,
       });
-      if (error) throw error;
       setVoted(true);
       toast.success('Vote enregistré !');
     } catch (e: any) {
