@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRoom } from '@/hooks/useRoom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeFunction } from '@/lib/invokeFunction';
 import { Copy, Play, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
@@ -36,10 +36,7 @@ export default function Lobby() {
     if (!room) return;
     setStarting(true);
     try {
-      const { error } = await supabase.functions.invoke('start-game', {
-        body: { room_id: room.id },
-      });
-      if (error) throw error;
+      await invokeFunction('start-game', { room_id: room.id });
     } catch (e: any) {
       toast.error(e.message || 'Erreur au lancement');
       setStarting(false);

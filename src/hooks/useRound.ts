@@ -10,7 +10,7 @@ export function useRound(roomId: string | null, roundNumber: number) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
 
   const fetchRound = useCallback(async () => {
-    if (!roomId) return;
+    if (!roomId || roundNumber < 1) return;
     const { data } = await supabase
       .from('rounds')
       .select('*')
@@ -28,6 +28,12 @@ export function useRound(roomId: string | null, roundNumber: number) {
       .eq('round_id', round.id);
     if (data) setSubmissions(data);
   }, [round?.id]);
+
+  // Reset state when round number changes
+  useEffect(() => {
+    setRound(null);
+    setSubmissions([]);
+  }, [roundNumber]);
 
   useEffect(() => {
     fetchRound();

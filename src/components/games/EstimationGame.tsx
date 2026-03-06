@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeFunction } from '@/lib/invokeFunction';
 import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -19,7 +19,7 @@ interface Props {
   submissions: Submission[];
 }
 
-export default function EstimationGame({ round, room, player, submissions }: Props) {
+export default function EstimationGame({ round, player, submissions }: Props) {
   const [answer, setAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const hasSubmitted = submissions.some(s => s.player_id === player.id);
@@ -29,10 +29,9 @@ export default function EstimationGame({ round, room, player, submissions }: Pro
     if (!answer.trim()) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.functions.invoke('submit-answer', {
-        body: { round_id: round.id, player_id: player.id, answer: { value: Number(answer) } },
+      await invokeFunction('submit-answer', {
+        round_id: round.id, player_id: player.id, answer: { value: Number(answer) },
       });
-      if (error) throw error;
       toast.success('Réponse envoyée !');
     } catch (e: any) {
       toast.error(e.message || 'Erreur');
