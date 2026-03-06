@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,27 @@ interface Props {
   player: Player;
   players: Player[];
   submissions: Submission[];
+}
+
+interface VoteChoice {
+  id: string;
+  text: string;
+  isReal: boolean;
+}
+
+function seededShuffle<T>(arr: T[], seed: string): T[] {
+  const a = [...arr];
+  // Simple hash from seed string
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  }
+  for (let i = a.length - 1; i > 0; i--) {
+    h = ((h << 5) - h + i) | 0;
+    const j = Math.abs(h) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 export default function BluffGame({ round, player, submissions }: Props) {
@@ -42,11 +63,17 @@ export default function BluffGame({ round, player, submissions }: Props) {
     }
   };
 
-  const handleVote = async (submissionId: string) => {
+  const handleVote = async (choice: VoteChoice) => {
     try {
-      await invokeFunction('submit-vote', {
-        round_id: round.id, player_id: player.id, target_submission_id: submissionId,
-      });
+      if (choice.isReal) {
+        await invokeFunction('submit-vote', {
+          round_id: round.id, player_id: player.id, voted_real_answer: true,
+        });
+      } else {
+        await invokeFunction('submit-vote', {
+          round_id: round.id, player_id: player.id, target_submission_id: choice.id,
+        });
+      }
       setVoted(true);
       toast.success('Vote enregistré !');
     } catch (e: any) {
@@ -54,6 +81,28 @@ export default function BluffGame({ round, player, submissions }: Props) {
     }
   };
 
+  // Build shuffled choices for voting phase: other players' bluffs + real answer
+  const choices = useMemo<VoteChoice[]>(() => {
+    if (round.status !== 'voting') return [];
+
+    const otherSubs = submissions
+      .filter(s => s.player_id !== player.id)
+      .map(s => ({
+        id: s.id,
+        text: (s.answer as { text?: string }).text || '???',
+        isReal: false,
+      }));
+
+    const realChoice: VoteChoice = {
+      id: '__real__',
+      text: config.real_answer || '???',
+      isReal: true,
+    };
+
+    return seededShuffle([...otherSubs, realChoice], round.id);
+  }, [round.status, round.id, submissions, player.id, config.real_answer]);
+
+  // Phase 1: Collecting bluffs
   if (round.status === 'collecting') {
     return (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
@@ -93,36 +142,41 @@ export default function BluffGame({ round, player, submissions }: Props) {
     );
   }
 
+  // Phase 2: Voting — real answer mixed with bluffs
   if (round.status === 'voting') {
-    const otherSubmissions = submissions.filter(s => s.player_id !== player.id);
     return (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
         <Card className="border-2 border-game-pink/30">
           <CardContent className="p-6 space-y-4">
             <div className="text-center">
-              <span className="text-4xl block mb-3">🗳️</span>
-              <h2 className="text-xl font-display font-bold">Quelle est la vraie réponse ?</h2>
+              <span className="text-4xl block mb-3">🔍</span>
+              <h2 className="text-xl font-display font-bold">{config.question || 'Question'}</h2>
+              <p className="text-muted-foreground text-sm mt-1">Trouvez la vraie réponse parmi les bluffs !</p>
             </div>
             {voted ? (
               <div className="text-center py-4">
                 <span className="text-3xl">✅</span>
                 <p className="font-display font-semibold mt-2">Vote enregistré !</p>
+                <p className="text-muted-foreground text-sm">En attente des résultats...</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {otherSubmissions.map(s => {
-                  const answerData = s.answer as { text?: string };
-                  return (
+                {choices.map((choice, i) => (
+                  <motion.div
+                    key={choice.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                  >
                     <Button
-                      key={s.id}
                       variant="outline"
-                      onClick={() => handleVote(s.id)}
-                      className="w-full h-auto py-3 text-left justify-start"
+                      onClick={() => handleVote(choice)}
+                      className="w-full h-auto py-3 px-4 text-left justify-start font-medium"
                     >
-                      {answerData.text || '???'}
+                      {choice.text}
                     </Button>
-                  );
-                })}
+                  </motion.div>
+                ))}
               </div>
             )}
           </CardContent>

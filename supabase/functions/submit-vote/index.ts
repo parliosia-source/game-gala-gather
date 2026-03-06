@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
     if (authErr || !user) throw new Error('Non authentifié');
 
-    const { round_id, player_id, target_submission_id } = await req.json();
+    const { round_id, player_id, target_submission_id, voted_real_answer } = await req.json();
 
     // Verify round is in voting
     const { data: round } = await supabase.from('rounds').select('*').eq('id', round_id).single();
@@ -33,11 +33,6 @@ Deno.serve(async (req) => {
     if (!player) throw new Error('Joueur introuvable');
     if (player.user_id !== user.id) throw new Error('Non autorisé');
 
-    // Verify not voting for own submission
-    const { data: targetSub } = await supabase.from('submissions').select('*').eq('id', target_submission_id).single();
-    if (!targetSub) throw new Error('Submission introuvable');
-    if (targetSub.player_id === player_id) throw new Error('Vous ne pouvez pas voter pour votre propre réponse');
-
     // Check if already voted
     const { data: existing } = await supabase
       .from('votes')
@@ -46,6 +41,24 @@ Deno.serve(async (req) => {
       .eq('player_id', player_id)
       .maybeSingle();
     if (existing) throw new Error('Vous avez déjà voté');
+
+    // Handle bluff real answer vote (target_submission_id = null)
+    if (voted_real_answer === true && round.game_type === 'bluff') {
+      const { error: insertErr } = await supabase
+        .from('votes')
+        .insert({ round_id, player_id, target_submission_id: null });
+      if (insertErr) throw insertErr;
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Standard vote: verify not voting for own submission
+    if (!target_submission_id) throw new Error('Cible de vote manquante');
+    const { data: targetSub } = await supabase.from('submissions').select('*').eq('id', target_submission_id).single();
+    if (!targetSub) throw new Error('Submission introuvable');
+    if (targetSub.player_id === player_id) throw new Error('Vous ne pouvez pas voter pour votre propre réponse');
 
     // Insert vote
     const { error: insertErr } = await supabase
