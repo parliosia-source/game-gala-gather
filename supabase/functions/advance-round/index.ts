@@ -43,15 +43,15 @@ Deno.serve(async (req) => {
     // State machine transitions
     if (currentRound.status === 'collecting') {
       if (hasVoting) {
-        // Move to voting
-        await supabase.from('rounds').update({ status: 'voting' }).eq('id', currentRound.id);
+        // Move to voting — reset started_at for voting timer
+        await supabase.from('rounds').update({ status: 'voting', started_at: new Date().toISOString() }).eq('id', currentRound.id);
         return new Response(JSON.stringify({ success: true, next_status: 'voting' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } else {
         // Skip voting, calculate scores
         await calculateScores(supabase, currentRound, room_id);
-        await supabase.from('rounds').update({ status: 'results' }).eq('id', currentRound.id);
+        await supabase.from('rounds').update({ status: 'results', started_at: new Date().toISOString() }).eq('id', currentRound.id);
         return new Response(JSON.stringify({ success: true, next_status: 'results' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     if (currentRound.status === 'voting') {
       // Calculate scores then show results
       await calculateScores(supabase, currentRound, room_id);
-      await supabase.from('rounds').update({ status: 'results' }).eq('id', currentRound.id);
+      await supabase.from('rounds').update({ status: 'results', started_at: new Date().toISOString() }).eq('id', currentRound.id);
       return new Response(JSON.stringify({ success: true, next_status: 'results' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
