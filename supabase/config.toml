@@ -1,0 +1,13 @@
+project_id = "jvlkdiidemyddyqvtfmt"
+
+[functions.start-game]
+verify_jwt = false
+
+[functions.submit-answer]
+verify_jwt = false
+
+[functions.submit-vote]
+verify_jwt = false
+
+[functions.advance-round]
+verify_jwt = false
