@@ -7,6 +7,7 @@ type Round = Database['public']['Tables']['rounds']['Row'];
 interface Props {
   round: Round;
   totalRounds: number;
+  remaining: number | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -17,8 +18,15 @@ const STATUS_LABELS: Record<string, string> = {
   finished: 'Terminé',
 };
 
-export default function RoundStatus({ round, totalRounds }: Props) {
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
+}
+
+export default function RoundStatus({ round, totalRounds, remaining }: Props) {
   const gameConfig = GAME_TYPES[round.game_type as GameType];
+  const isUrgent = remaining !== null && remaining <= 5;
 
   return (
     <motion.div
@@ -36,8 +44,26 @@ export default function RoundStatus({ round, totalRounds }: Props) {
             </p>
           </div>
         </div>
-        <div className="px-3 py-1 rounded-full bg-primary/10 text-primary font-display text-sm font-semibold">
-          {STATUS_LABELS[round.status] || round.status}
+
+        <div className="flex items-center gap-2">
+          {remaining !== null && (
+            <motion.div
+              key={remaining}
+              initial={isUrgent ? { scale: 1.3 } : {}}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.2 }}
+              className={`px-3 py-1 rounded-full font-display text-sm font-bold tabular-nums ${
+                isUrgent
+                  ? 'bg-destructive/15 text-destructive'
+                  : 'bg-accent text-accent-foreground'
+              }`}
+            >
+              ⏱ {formatTime(remaining)}
+            </motion.div>
+          )}
+          <div className="px-3 py-1 rounded-full bg-primary/10 text-primary font-display text-sm font-semibold">
+            {STATUS_LABELS[round.status] || round.status}
+          </div>
         </div>
       </div>
     </motion.div>
