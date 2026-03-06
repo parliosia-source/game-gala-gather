@@ -130,30 +130,87 @@ async function calculateScores(supabase: any, round: any, room_id: string) {
     }
   }
 
-  if (round.game_type === 'bluff' || round.game_type === 'vote') {
+  if (round.game_type === 'bluff') {
     const { data: votes } = await supabase
       .from('votes')
       .select('*')
       .eq('round_id', round.id);
 
-    // Count votes per submission
+    // Count votes per submission (duped players)
+    const voteCounts: Record<string, number> = {};
+    const foundRealPlayers: string[] = [];
+    for (const vote of (votes || [])) {
+      if (vote.target_submission_id === null) {
+        // Voted for the real answer
+        foundRealPlayers.push(vote.player_id);
+      } else {
+        voteCounts[vote.target_submission_id] = (voteCounts[vote.target_submission_id] || 0) + 1;
+      }
+    }
+
+    // Points for duping other players (200 per duped player)
+    for (const sub of submissions) {
+      const received = voteCounts[sub.id] || 0;
+      if (received > 0) {
+        scoreEvents.push({
+          room_id,
+          round_id: round.id,
+          player_id: sub.player_id,
+          points: received * 200,
+          reason: `${received} joueur(s) dupé(s) par votre bluff`,
+        });
+      }
+    }
+
+    // Points for finding the real answer (300 pts)
+    for (const playerId of foundRealPlayers) {
+      scoreEvents.push({
+        room_id,
+        round_id: round.id,
+        player_id: playerId,
+        points: 300,
+        reason: 'A trouvé la vraie réponse !',
+      });
+    }
+
+    // Players who didn't find the real answer and got 0 duped votes: 0 pts (no event needed)
+    // But ensure all players have at least one score event for display
+    const playersWithEvents = new Set(scoreEvents.map(e => e.player_id));
+    for (const sub of submissions) {
+      if (!playersWithEvents.has(sub.player_id)) {
+        scoreEvents.push({
+          room_id,
+          round_id: round.id,
+          player_id: sub.player_id,
+          points: 0,
+          reason: 'Aucun joueur dupé, vraie réponse non trouvée',
+        });
+      }
+    }
+  }
+
+  if (round.game_type === 'vote') {
+    const { data: votes } = await supabase
+      .from('votes')
+      .select('*')
+      .eq('round_id', round.id);
+
     const voteCounts: Record<string, number> = {};
     for (const vote of (votes || [])) {
-      voteCounts[vote.target_submission_id] = (voteCounts[vote.target_submission_id] || 0) + 1;
+      if (vote.target_submission_id) {
+        voteCounts[vote.target_submission_id] = (voteCounts[vote.target_submission_id] || 0) + 1;
+      }
     }
 
     for (const sub of submissions) {
       const received = voteCounts[sub.id] || 0;
       const points = received * 200;
-      const reason = round.game_type === 'bluff'
-        ? `${received} joueur(s) dupé(s) par votre bluff`
-        : `${received} vote(s) reçu(s)`;
       scoreEvents.push({
         room_id,
         round_id: round.id,
         player_id: sub.player_id,
         points,
-        reason,
+        reason: `${received} vote(s) reçu(s)`,
       });
     }
   }
