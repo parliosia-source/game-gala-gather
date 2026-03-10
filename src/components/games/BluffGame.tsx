@@ -28,7 +28,6 @@ interface VoteChoice {
 
 function seededShuffle<T>(arr: T[], seed: string): T[] {
   const a = [...arr];
-  // Simple hash from seed string
   let h = 0;
   for (let i = 0; i < seed.length; i++) {
     h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
@@ -81,12 +80,18 @@ export default function BluffGame({ round, player, submissions }: Props) {
     }
   };
 
-  // Build shuffled choices for voting phase: other players' bluffs + real answer
+  // Build shuffled choices: other players' bluffs (+ bots) + real answer
+  // Exclude own non-bot submission
   const choices = useMemo<VoteChoice[]>(() => {
     if (round.status !== 'voting') return [];
 
     const otherSubs = submissions
-      .filter(s => s.player_id !== player.id)
+      .filter(s => {
+        const ans = s.answer as { text?: string; is_bot?: boolean };
+        // Show bot submissions + other players' submissions, but not own
+        if (ans.is_bot) return true;
+        return s.player_id !== player.id;
+      })
       .map(s => ({
         id: s.id,
         text: (s.answer as { text?: string }).text || '???',
@@ -142,7 +147,7 @@ export default function BluffGame({ round, player, submissions }: Props) {
     );
   }
 
-  // Phase 2: Voting — real answer mixed with bluffs
+  // Phase 2: Voting
   if (round.status === 'voting') {
     return (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
