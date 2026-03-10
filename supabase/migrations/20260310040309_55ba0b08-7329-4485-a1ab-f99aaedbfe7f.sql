@@ -1,0 +1,1 @@
+ALTER TABLE public.submissions DROP CONSTRAINT submissions_round_id_player_id_key;
