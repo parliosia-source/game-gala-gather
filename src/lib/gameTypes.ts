@@ -1,4 +1,4 @@
-export type GameType = 'estimation' | 'bluff' | 'vote';
+export type GameType = 'estimation' | 'bluff' | 'vote' | 'guess_who' | 'higher_lower' | 'odd_answer';
 
 export interface GameTypeConfig {
   label: string;
@@ -27,6 +27,27 @@ export const GAME_TYPES: Record<GameType, GameTypeConfig> = {
     label: 'Vote Social',
     emoji: '🗳️',
     description: 'Votez pour la meilleure réponse !',
+    hasVotingPhase: true,
+    color: 'game-green',
+  },
+  guess_who: {
+    label: 'Qui a dit ça ?',
+    emoji: '🕵️',
+    description: 'Devinez qui a écrit quelle phrase !',
+    hasVotingPhase: true,
+    color: 'game-orange',
+  },
+  higher_lower: {
+    label: 'Plus ou Moins',
+    emoji: '⬆️⬇️',
+    description: 'La vraie valeur est-elle plus haute ou plus basse ?',
+    hasVotingPhase: false,
+    color: 'game-yellow',
+  },
+  odd_answer: {
+    label: 'Réponse Décalée',
+    emoji: '🤪',
+    description: 'La réponse la plus originale gagne !',
     hasVotingPhase: true,
     color: 'game-green',
   },
