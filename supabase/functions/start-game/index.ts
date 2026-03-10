@@ -28,6 +28,27 @@ const QUESTIONS = {
     { question: "Quel serait votre talent caché idéal ?" },
     { question: "Quelle invention inutile aimeriez-vous créer ?" },
   ],
+  guess_who: [
+    { question: "Décrivez votre pire habitude secrète." },
+    { question: "Quel est votre plaisir coupable ?" },
+    { question: "Racontez un souvenir embarrassant en une phrase." },
+    { question: "Quelle est votre opinion impopulaire ?" },
+    { question: "Quel est le compliment le plus étrange qu'on vous a fait ?" },
+  ],
+  higher_lower: [
+    { question: "Population de la France en millions", reference_value: 60, real_value: 68, unit: "millions" },
+    { question: "Nombre de langues parlées dans le monde", reference_value: 5000, real_value: 7168, unit: "langues" },
+    { question: "Vitesse maximale d'un guépard en km/h", reference_value: 100, real_value: 120, unit: "km/h" },
+    { question: "Profondeur de la fosse des Mariannes en mètres", reference_value: 8000, real_value: 10994, unit: "mètres" },
+    { question: "Nombre d'étoiles visibles à l'œil nu", reference_value: 3000, real_value: 9096, unit: "étoiles" },
+  ],
+  odd_answer: [
+    { question: "Quelle est la chose la plus inutile que vous possédez ?" },
+    { question: "Quel métier bizarre aimeriez-vous exercer ?" },
+    { question: "Inventez un mot et donnez sa définition." },
+    { question: "Quel animal seriez-vous et pourquoi ?" },
+    { question: "Quelle serait votre dernière commande au restaurant ?" },
+  ],
 };
 
 function shuffle<T>(arr: T[]): T[] {
@@ -37,6 +58,30 @@ function shuffle<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+// Build a sequence of 5 game types avoiding consecutive repeats
+function buildDuelSequence(): string[] {
+  const duelTypes = ['estimation', 'bluff', 'guess_who', 'higher_lower', 'odd_answer'];
+  const result: string[] = [];
+  const pool = shuffle([...duelTypes]);
+  
+  for (let i = 0; i < 5; i++) {
+    // Pick from shuffled pool, avoiding repeat of last
+    let candidates = pool.filter(t => t !== result[result.length - 1]);
+    if (candidates.length === 0) candidates = pool;
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    result.push(pick);
+    // Remove from pool to maximize variety, refill if empty
+    const idx = pool.indexOf(pick);
+    if (idx !== -1) pool.splice(idx, 1);
+    if (pool.length === 0) pool.push(...shuffle([...duelTypes]));
+  }
+  return result;
+}
+
+function buildNormalSequence(): string[] {
+  return shuffle(['estimation', 'bluff', 'vote', 'estimation', 'vote']);
 }
 
 Deno.serve(async (req) => {
@@ -50,29 +95,32 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Non authentifié');
-
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
     if (authErr || !user) throw new Error('Non authentifié');
 
     const { room_id } = await req.json();
 
-    // Verify host
     const { data: room } = await supabase.from('rooms').select('*').eq('id', room_id).single();
     if (!room) throw new Error('Room introuvable');
     if (room.host_id !== user.id) throw new Error('Seul l\'hôte peut lancer la partie');
     if (room.status !== 'waiting') throw new Error('La partie a déjà commencé');
 
-    // Generate 5 rounds with mixed game types
-    const gameTypes: Array<'estimation' | 'bluff' | 'vote'> = shuffle(['estimation', 'bluff', 'vote', 'estimation', 'vote']);
+    // Count players to detect duel mode
+    const { count } = await supabase.from('players').select('id', { count: 'exact', head: true }).eq('room_id', room_id);
+    const playerCount = count || 0;
+    const isDuel = playerCount === 2;
+
+    const gameTypes = isDuel ? buildDuelSequence() : buildNormalSequence();
+
     const rounds = gameTypes.map((type, i) => {
-      const questions = QUESTIONS[type];
+      const questions = QUESTIONS[type as keyof typeof QUESTIONS];
       const q = questions[Math.floor(Math.random() * questions.length)];
       return {
         room_id,
         round_number: i + 1,
         game_type: type,
-        config: q,
+        config: { ...q, is_duel: isDuel },
         status: i === 0 ? 'collecting' : 'pending',
         started_at: i === 0 ? new Date().toISOString() : null,
       };
@@ -81,14 +129,13 @@ Deno.serve(async (req) => {
     const { error: roundsErr } = await supabase.from('rounds').insert(rounds);
     if (roundsErr) throw roundsErr;
 
-    // Update room status
     const { error: updateErr } = await supabase
       .from('rooms')
       .update({ status: 'playing', current_round: 1 })
       .eq('id', room_id);
     if (updateErr) throw updateErr;
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, is_duel: isDuel }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {

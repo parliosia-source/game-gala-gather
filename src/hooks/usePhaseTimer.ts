@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getPhaseDuration } from '@/lib/timerConfig';
 
 interface UsePhaseTimerOptions {
   gameType: string;
   status: string;
   startedAt: string | null;
+  isDuel?: boolean;
   onExpired?: () => void;
 }
 
@@ -12,12 +13,11 @@ interface UsePhaseTimerOptions {
  * Returns remaining seconds for the current phase, computed from
  * the server-side started_at timestamp. Calls onExpired once when it hits 0.
  */
-export function usePhaseTimer({ gameType, status, startedAt, onExpired }: UsePhaseTimerOptions) {
-  const duration = getPhaseDuration(gameType, status);
+export function usePhaseTimer({ gameType, status, startedAt, isDuel = false, onExpired }: UsePhaseTimerOptions) {
+  const duration = getPhaseDuration(gameType, status, isDuel);
   const [remaining, setRemaining] = useState<number | null>(null);
   const expiredCalled = useRef(false);
 
-  // Reset expired flag when phase changes
   useEffect(() => {
     expiredCalled.current = false;
   }, [status, startedAt]);
