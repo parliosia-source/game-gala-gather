@@ -268,7 +268,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      game_type: "estimation" | "bluff" | "vote"
+      game_type:
+        | "estimation"
+        | "bluff"
+        | "vote"
+        | "guess_who"
+        | "higher_lower"
+        | "odd_answer"
       room_status: "waiting" | "playing" | "finished"
       round_status: "pending" | "collecting" | "voting" | "results" | "finished"
     }
@@ -398,7 +404,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      game_type: ["estimation", "bluff", "vote"],
+      game_type: [
+        "estimation",
+        "bluff",
+        "vote",
+        "guess_who",
+        "higher_lower",
+        "odd_answer",
+      ],
       room_status: ["waiting", "playing", "finished"],
       round_status: ["pending", "collecting", "voting", "results", "finished"],
     },
