@@ -46,10 +46,15 @@ export default function Game() {
     advancingRef.current = false;
   }, [round?.status, round?.started_at]);
 
+  const isDuel = players.length === 2;
+  const roundConfig = round?.config as Record<string, any> | undefined;
+  const configIsDuel = roundConfig?.is_duel === true;
+
   const { remaining } = usePhaseTimer({
     gameType: round?.game_type || '',
     status: round?.status || '',
     startedAt: round?.started_at || null,
+    isDuel: isDuel || configIsDuel,
     onExpired: handleTimerExpired,
   });
 
